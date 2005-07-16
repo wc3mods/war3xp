@@ -3,7 +3,7 @@
 *  Warcraft 3 XP 
 *  Original idea and code by SpaceDude 
 *
-*  Version pre-2.6
+*  Version 2.6
 *
 *  Read readme.txt for a desription of the plugin.
 *  Read installer.txt for installation information.
@@ -16,7 +16,6 @@
 *				Johnny got his gun
 * 
 *  Maintainer of the 2.6.x code: Michael McKoy a.k.a. "ferret"
-*  Maintainer of the 2.5.x and prior code: Ryan Schulze a.k.a. "DopeFish"
 *
 *
 * (C)2003-2004 "Spacedude" and all people listed under "Update/Modifications"
@@ -326,22 +325,22 @@
 	#if !defined (HEALINGWAND_COOLDOWN)
 		#define HEALINGWAND_COOLDOWN 40.0
 	#endif
-	#if !defined(TROLL_REGEN_FLASH)
+	#if !defined (TROLL_REGEN_FLASH)
 		#define TROLL_REGEN_FLASH 1
 	#endif
-	#if !defined(DWARF_SMOKE)
+	#if !defined (DWARF_SMOKE)
 		#define DWARF_SMOKE 1
 	#endif
-	#if !defined(AVATAR_DURATION)
+	#if !defined (AVATAR_DURATION)
 		#define AVATAR_DURATION 2.0
 	#endif
 	#if !defined (AVATAR_COOLDOWN)
 		#define AVATAR_COOLDOWN 40.0
 	#endif
-	#if !defined(FROSTNOVA_RANGE)
+	#if !defined (FROSTNOVA_RANGE)
 		#define FROSTNOVA_RANGE 400
 	#endif
-	#if !defined(FROSTNOVA_DURATION)
+	#if !defined (FROSTNOVA_DURATION)
 		#define FROSTNOVA_DURATION 5.0
 	#endif	
 	#if !defined (FROSTNOVA_COOLDOWN)
@@ -4400,13 +4399,14 @@ public speed_controller(id)
 	return PLUGIN_CONTINUE
 }
 
-public weapon_zoomed(id)
-{
-	speed_controller(id)
-	return PLUGIN_CONTINUE
-}
-
-public weapon_unzoomed(id)
+// weapon_statechange()
+// --------------------
+// This function is called on 4 occasions.. When a sniper rifle
+// is zoomed in and out, and when a shield is opened and closed.
+// These four events don't work in change_weapon() because it
+// only does speed adjustments if the actual weapon id changed.
+//
+public weapon_statechange(id)
 {
 	speed_controller(id)
 	return PLUGIN_CONTINUE
@@ -8519,8 +8519,18 @@ public buy_item(id,key){
 		return PLUGIN_HANDLED
 	}
 	else if (key==TOME-1){
-		cs_set_user_money(id,usermoney-itemcost[key],1)
-		playerxp[id]+=XPBONUS	// Give XP bonus for buying Tome of Experience
+		#if XPLOIT_PROTECT						
+			if( antiExploit )
+			{
+				cs_set_user_money(id,usermoney-itemcost[key],1)
+				playerxp[id]+=XPBONUS	// Give XP bonus for buying Tome of Experience
+			}
+			else
+				client_print(id,print_center,"There are too few players on the server. No XP given.")
+		#else
+			cs_set_user_money(id,usermoney-itemcost[key],1)
+			playerxp[id]+=XPBONUS	// Give XP bonus for buying Tome of Experience
+		#endif
 	}
 	else{
 		cs_set_user_money(id,usermoney-itemcost[key],1)
@@ -9235,8 +9245,8 @@ public plugin_init()
 	gmsgShake = get_user_msgid("ScreenShake")
 	gmsgStatusText = get_user_msgid("StatusText")
 
-	register_plugin("Warcraft 3 XP","pre-2.6","AMXX Community")
-	register_cvar("Warcraft_3_XP", "pre-2.6",FCVAR_SERVER)
+	register_plugin("Warcraft 3 XP","2.6","ferret (Dopefish/Spacedude)")
+	register_cvar("Warcraft_3_XP", "2.6",FCVAR_SERVER)
 
 	#if LANG_ENG
 		register_menucmd(register_menuid("\yWarCraft3 XP Menu"),(1<<0)|(1<<1)|(1<<2)|(1<<9),"do_wc3menuMain")
@@ -9331,8 +9341,9 @@ public plugin_init()
 	register_srvcmd("wc3_changexp","changeXP")
 	register_srvcmd("changexp","changeXP")
 
-	register_event("SetFOV","weapon_zoomed","be","1<90")   
-	register_event("SetFOV","weapon_unzoomed","be","1=90") 
+	register_event("HideWeapon", "weapon_statechange", "b"); 
+	register_event("SetFOV","weapon_statechange","be","1<90")   
+	register_event("SetFOV","weapon_statechange","be","1=90") 
 	register_event("CurWeapon","change_weapon","be","1=1")
 	register_event("DeathMsg","death","a")
 	register_event("ResetHUD", "player_spawn", "b")
