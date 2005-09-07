@@ -3,7 +3,7 @@
 *  Warcraft 3 XP 
 *  Original idea and code by SpaceDude 
 *
-*  Version 2.6
+*  Version 2.6.1
 *
 *  Read readme.txt for a desription of the plugin.
 *  Read installer.txt for installation information.
@@ -13,12 +13,13 @@
 *  Update/Modifications by: 	Mr. B, Dopefish, Tri Moon, Mike4066, [AoL]LuckyJ, 
 *				[AoL]Demandred, Pimp Daddy, Denkkar Seffyd, rACEmic,
 *				willyumyum, trinity, ferret, No FuN, SniperBeamer,
-*				Johnny got his gun
+*				Johnny got his gun, Lazarus Long
 * 
 *  Maintainer of the 2.6.x code: Michael McKoy a.k.a. "ferret"
+*  Maintainer of the 2.5.x and prior code: Ryan Schulze a.k.a. "DopeFish"
 *
 *
-* (C)2003-2004 "Spacedude" and all people listed under "Update/Modifications"
+* (C)2003-2005 "Spacedude" and all people listed under "Update/Modifications"
 *
 * This program is free software; you can redistribute it and/or
 * modify it under the terms of the GNU General Public License
@@ -45,7 +46,7 @@
 *
 *
 * Support Forum:
-* http://www.insanejustice.com/forum/forumdisplay.php?s=&forumid=35
+* http://wc3mods.net/forums/index.php?c=6
 */
 
 #include <amxmodx>
@@ -358,6 +359,19 @@
 #pragma dynamic 6144
                                                                                  
 #if MYSQL_ENABLED
+	// Prints debug information regarding SQL statments and replies
+	#if !defined (SQL_DEBUG)
+		#define SQL_DEBUG 0
+	#endif
+	// Type of SQL being used
+	#define SQL_FAIL -1
+	#define SQL_NONE 0
+	#define SQL_MYSQL 1
+	#define SQL_SQLITE 2
+	// Type of SQlite database synchronization
+	#define SQLITE_SYNC_OFF 0
+	#define SQLITE_SYNC_NORMAL 1
+	#define SQLITE_SYNC_FULL 2
 	new const PATHTOMYSQLCFG[] = "addons/amxmodx/configs/mysql.cfg"
 #endif
                                                                                                                         
@@ -488,8 +502,11 @@ new Float:p_trueshot[3] = {0.13,0.27,0.40}	// Trueshot Aura (skill 3)
 	#if MYSQL_ENABLED
 		#include <dbi>
 		new Sql:mysql
-		new bool:needsSQLEntry[33]          // does player have an account?
 		new mysqltablename[64]
+		new const g_MySQL[] = "MySQL"
+		new const g_SQLite[] = "SQLite"
+		new SQLtype[16]
+		new iSQLtype = SQL_NONE
 	#else
 		#include <vault>
 		#if CONVERT_TO_VAULT   
@@ -7865,11 +7882,38 @@ public write_all(){
 	if (warcraft3 && saved_xp){
 		new players[MAX_PLAYERS], numofplayers, id
 		get_players(players, numofplayers)
+		#if MYSQL_ENABLED
+			if (iSQLtype == SQL_MYSQL) {
+				#if SQL_DEBUG
+					log_amx("[WC3] dbi_query(%d, 'SET AUTOCOMMIT=0')", mysql)
+				#endif
+				dbi_query(mysql, "SET AUTOCOMMIT=0")
+				dbi_check_error()
+				#if SQL_DEBUG
+					log_amx("[WC3] dbi_query(%d, 'START TRANSACTION')", mysql)
+				#endif
+				dbi_query(mysql, "START TRANSACTION")
+				dbi_check_error()
+			} else if (iSQLtype == SQL_SQLITE) {
+				#if SQL_DEBUG
+					log_amx("[WC3] dbi_query(%d, 'BEGIN TRANSACTION')", mysql)
+				#endif
+				dbi_query(mysql, "BEGIN TRANSACTION")
+				dbi_check_error()
+			}
+		#endif
 		for (new i=0; i<numofplayers; i++){
 			id = players[i]
 			if (p_skills[id][0] && playerxp[id])
 				write_xp_to_file(id,"")
 		}
+		#if MYSQL_ENABLED
+			#if SQL_DEBUG
+				log_amx("[WC3] dbi_query(%d, 'COMMIT')", mysql)
+			#endif
+			dbi_query(mysql, "COMMIT")
+			dbi_check_error()
+		#endif
 	}
 	
 	return PLUGIN_CONTINUE
@@ -7910,20 +7954,13 @@ public write_xp_to_file(id,givenline[128]){
 //			while(containi(playername,"!") != -1) replace(playername,32,"!","\!") 			
 		}			
 			
-		if (needsSQLEntry[id])
-		{
-			format(mquery, 1023, "INSERT INTO `%s` (playerid,playername,xp,race,skill1,skill2,skill3,skill4) VALUES \
-				('%s','%s',%d,%d,%d,%d,%d,%d)", mysqltablename, playerid, playername, playerxp[id],  p_skills[id][0], \
-				p_skills[id][1], p_skills[id][2], p_skills[id][3], p_skills[id][4])
-			needsSQLEntry[id] = false
-		}
-		else
-		{
-			format(mquery, 1023, "UPDATE `%s` SET playername='%s',xp=%d,skill1=%d,skill2=%d,skill3=%d,skill4=%d WHERE \
-				playerid='%s' AND race=%d AND xp<%d", mysqltablename, playername, playerxp[id], p_skills[id][1], \
-				p_skills[id][2], p_skills[id][3], p_skills[id][4], playerid, p_skills[id][0], playerxp[id])
-		}
+		format(mquery, 1023, "REPLACE INTO `%s` (`playerid`, `playername`, `xp`, `race`, `skill1`, `skill2`, `skill3`, `skill4`) \
+			VALUES ('%s', '%s', %d, %d, %d, %d, %d, %d)", mysqltablename, playerid, playername, playerxp[id], p_skills[id][0], \
+			p_skills[id][1], p_skills[id][2], p_skills[id][3], p_skills[id][4])
 		//console_print(0,"%s\n", mquery)
+		#if SQL_DEBUG
+			log_amx("[WC3] dbi_query(%d, %s)", mysql, mquery)
+		#endif
 		dbi_query(mysql,mquery)
 		dbi_check_error()
 	#else
@@ -7992,11 +8029,17 @@ public get_xp_from_file(id,returnrace){
 		if (returnrace)
 		{
 			if (get_cvar_num("mp_savebyname")==1)
-				format(mquery, 1023, "SELECT * FROM `%s` WHERE playername='%s'",mysqltablename,playername)
+				format(mquery, 1023, "SELECT * FROM `%s` WHERE (`playername` = '%s')",mysqltablename,playername)
 			else
-				format(mquery, 1023, "SELECT * FROM `%s` WHERE playerid='%s'",mysqltablename,playerid)
+				format(mquery, 1023, "SELECT * FROM `%s` WHERE (`playerid` = '%s')",mysqltablename,playerid)
 
+			#if SQL_DEBUG
+				log_amx("[WC3] dbi_query(%d, %s)", mysql, mquery)
+			#endif
 			new Result:res = dbi_query(mysql,mquery)
+			#if SQL_DEBUG
+				log_amx("[WC3] res=%d", res)
+			#endif
 			dbi_check_error()
 
 			if (res > RESULT_NONE) 
@@ -8027,11 +8070,17 @@ public get_xp_from_file(id,returnrace){
 		else
 		{
 			if (get_cvar_num("mp_savebyname")==1)
-				format(mquery, 1023, "SELECT * FROM `%s` WHERE playername='%s' AND race='%d'",mysqltablename,playername,p_skills[id][0])
+				format(mquery, 1023, "SELECT * FROM `%s` WHERE (`playername` = '%s' AND `race` = %d)",mysqltablename,playername,p_skills[id][0])
 			else
-				format(mquery, 1023, "SELECT * FROM `%s` WHERE playerid='%s' AND race='%d'",mysqltablename,playerid,p_skills[id][0])
+				format(mquery, 1023, "SELECT * FROM `%s` WHERE (`playerid` = '%s' AND `race` = %d)",mysqltablename,playerid,p_skills[id][0])
 
+			#if SQL_DEBUG
+				log_amx("[WC3] dbi_query(%d, %s)", mysql, mquery)
+			#endif
 			new Result:res = dbi_query(mysql,mquery)
+			#if SQL_DEBUG
+				log_amx("[WC3] res=%d", res)
+			#endif
 			dbi_check_error()
 			if (res > RESULT_NONE && dbi_nextrow(res)) {
 				dbi_field(res,3,xp,7)
@@ -8042,7 +8091,6 @@ public get_xp_from_file(id,returnrace){
 				dbi_free_result(res)
 
 				playerxp[id]=str_to_num(xp)
-				needsSQLEntry[id] = false;         	 // entry has been found, so no new SQL entry needs to be created
 				p_skills[id][1]=str_to_num(skill1)
 				p_skills[id][2]=str_to_num(skill2)
 				p_skills[id][3]=str_to_num(skill3)
@@ -8051,7 +8099,6 @@ public get_xp_from_file(id,returnrace){
 			}
 			else{
 				playerxp[id]=0
-				needsSQLEntry[id] = true;         	 // entry has not been found, so a new SQL entry needs to be created
 				p_skills[id][1]=0
 				p_skills[id][2]=0
 				p_skills[id][3]=0
@@ -8130,56 +8177,115 @@ public get_xp_from_file(id,returnrace){
 		new nextline=0, textlength
 	
 		get_cvar_string("sv_mysqltablename",mysqltablename,63)		
-		new mhost[64], muser[32], mpass[32], mdb[32], primarykey[128]
+		new mhost[64], muser[32], mpass[32], mdb[128], int_check[64]
 		new merror[256]
 		new mquery[512]
-		format (mquery, 511, "CREATE TABLE IF NOT EXISTS `%s` ( `playerid` VARCHAR(32) NOT NULL, `playername` VARCHAR(32) NOT NULL, `xp` INT(10) NOT NULL, `race` TINYINT(4) NOT NULL, \
-				`skill1` TINYINT(4), `skill2` TINYINT(4), `skill3` TINYINT(4), `skill4` TINYINT(4), `time` TIMESTAMP( 14 ) NOT NULL, PRIMARY KEY (playerid,race))",mysqltablename)
-	
-			
+
+		dbi_type(SQLtype, 15)
+		#if SQL_DEBUG
+			log_amx("[WC3] dbi_type: %s", SQLtype)
+		#endif
+
+		if (equali(SQLtype, g_MySQL)) {
+			iSQLtype = SQL_MYSQL
+			copy(SQLtype, strlen(g_MySQL)+1, g_MySQL)
+		} else if (equali(SQLtype, g_SQLite)) {
+			iSQLtype = SQL_SQLITE
+			copy(SQLtype, strlen(g_SQLite)+1, g_SQLite)
+		} else {
+			iSQLtype = SQL_NONE
+			log_amx("[WC3] Unsupported database type found (%s), the supported databases are %s or %s", SQLtype, g_MySQL, g_SQLite)
+			return PLUGIN_CONTINUE
+		}
+		#if SQL_DEBUG
+			log_amx("[WC3] iSQLtype = %d, SQLtype = %s", iSQLtype, SQLtype)
+		#endif
+
+		if (iSQLtype == SQL_MYSQL)
+			format(mquery, 511, "CREATE TABLE IF NOT EXISTS `%s` (`playerid` VARCHAR(35) NOT NULL DEFAULT '', \
+				`playername` VARCHAR(35) NOT NULL DEFAULT '', `xp` INT(11) NOT NULL DEFAULT 0, \
+				`race` TINYINT(4) NOT NULL DEFAULT 0, `skill1` TINYINT(4) NOT NULL DEFAULT 0, \
+				`skill2` TINYINT(4) NOT NULL DEFAULT 0, `skill3` TINYINT(4) NOT NULL DEFAULT 0, \
+				`skill4` TINYINT(4) NOT NULL DEFAULT 0, `time` TIMESTAMP(14) NOT NULL, PRIMARY KEY (`playerid`, `race`))", \
+				mysqltablename)
+		else if (iSQLtype == SQL_SQLITE)
+			format(mquery, 511, "CREATE TABLE `%s` (`playerid` TEXT NOT NULL DEFAULT '', `playername` TEXT NOT NULL DEFAULT '', \
+				`xp` INTEGER NOT NULL DEFAULT 0, `race` INTEGER NOT NULL DEFAULT 0, `skill1` INTEGER NOT NULL DEFAULT 0, \
+				`skill2` INTEGER NOT NULL DEFAULT 0, `skill3` INTEGER NOT NULL DEFAULT 0, `skill4` INTEGER NOT NULL DEFAULT 0, \
+				`time` TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (`playerid`, `race`))", mysqltablename)
+
 		if (file_exists(filename)){
 			nextline = read_file(filename,nextline,mhost,63,textlength)
 			nextline = read_file(filename,nextline,muser,31,textlength)
 			nextline = read_file(filename,nextline,mpass,31,textlength)
-			nextline = read_file(filename,nextline,mdb,31,textlength)
+			nextline = read_file(filename,nextline,mdb,127,textlength)
 		}
 		else{	
 			server_cmd("exec %s", PATHTOMYSQLCFG)
 			get_cvar_string("amx_sql_host",mhost,63)
 			get_cvar_string("amx_sql_user",muser,31)
 			get_cvar_string("amx_sql_pass",mpass,31)
-			get_cvar_string("amx_sql_db",mdb,31)
+			get_cvar_string("amx_sql_db",mdb,127)
 		}
-		
+
+		#if SQL_DEBUG
+			log_amx("[WC3] dbi_connect(%s, %s, %s, %s, %s, %d)", mhost, muser, mpass, mdb, merror, 256)
+		#endif
 		mysql = dbi_connect(mhost,muser,mpass,mdb,merror,256)
+		#if SQL_DEBUG
+			log_amx("[WC3] mysql=%d", mysql)
+		#endif
 
 		if (merror[0]) 
 		{
 			server_print("MYSQL Error Connect: %s", merror)
 		} 
 
-		dbi_query(mysql,mquery)
-		dbi_check_error()
-	
-		format(mquery, 511, "show index from `%s`", mysqltablename)
-
-		new Result:res = dbi_query(mysql,mquery)
-		dbi_check_error()
-		if (res > RESULT_NONE && dbi_nextrow(res)) {
-			dbi_field(res,5,primarykey,127)
-			dbi_free_result(res)
-		}
-	
-		if (get_cvar_num("mp_savebyname")==1 && contain(primarykey,"playername")){	// contain() returns 0 if the two strings match exactly
-			format(mquery, 511, "ALTER TABLE `%s` DROP PRIMARY KEY , ADD PRIMARY KEY ( `playername` , `race` )", mysqltablename)
-
+		if (iSQLtype != SQL_SQLITE || !sqlite_table_exists(mysql, mysqltablename)) {
+			#if SQL_DEBUG
+				log_amx("[WC3] dbi_query(%d, %s)", mysql, mquery)
+			#endif
 			dbi_query(mysql,mquery)
 			dbi_check_error()
 		}
-		else if (get_cvar_num("mp_savebyname")==0 && contain(primarykey,"playerid")){	// contain() returns 0 if the two strings match exactly
-			format(mquery, 511, "ALTER TABLE `%s` DROP PRIMARY KEY , ADD PRIMARY KEY ( `playerid` , `race` )", mysqltablename)
 
-			dbi_query(mysql,mquery)
+		if (iSQLtype == SQL_SQLITE) {
+		/*
+			PRAGMA commands don't return anything so no need to check the result of the query
+
+			Lets fine tune the database:
+				"integrity_check"	- well it's what it says, we do have to check the value it
+							  returns since it's important
+		 		"synchronous = NORMAL"	- Put back the 2.x behaviour (faster than the defalt for 3.x)
+				"synchronous = OFF"	- Way faster, but it might get corrupted data if a server os
+							  system crash occurs
+		 */
+			format(mquery, 511, "PRAGMA integrity_check")
+			#if SQL_DEBUG
+				log_amx("[WC3] dbi_query(%d, %s)", mysql, mquery)
+			#endif
+			new Result:res = dbi_query(mysql, mquery)
+			dbi_check_error()
+
+			while (res && dbi_nextrow(res)>0) {
+				dbi_result(res, "integrity_check", int_check, 63)
+			}
+
+			dbi_free_result(res)
+			#if SQL_DEBUG
+				log_amx("[WC3] int_check=%s", int_check)
+			#endif
+
+			if (!equali(int_check, "ok")) {
+				log_amx("[WC3] Database integrity check failed with code: %s", int_check)
+				return PLUGIN_HANDLED
+			}
+
+			format(mquery, 511, "PRAGMA synchronous = %d", SQLITE_SYNC_OFF)
+			#if SQL_DEBUG
+				log_amx("[WC3] dbi_query(%d, %s)", mysql, mquery)
+			#endif
+			dbi_query(mysql, mquery)
 			dbi_check_error()
 		}
 		return PLUGIN_CONTINUE
@@ -8187,12 +8293,13 @@ public get_xp_from_file(id,returnrace){
 
 	public dbi_check_error(){
 		new merror[256]
+		#if SQL_DEBUG
+			log_amx("[WC3] dbi_error(%d, %s, %d)", mysql, merror, 255)
+		#endif
 		dbi_error(mysql,merror,255)
 
 		if (merror[0])
-		{
 			server_print("MYSQL Error Query: %s", merror)
-		}
 	}
 #endif
 
@@ -8215,14 +8322,31 @@ public plugin_end(){
 			
 			// At 5:36 AM until 5:59 AM a mapchange will trigger an auto-prune.
 			if( (str_to_num( currentHour) == 5) && (str_to_num( currentMin) > 35 ) ){
-					
-				// Timestamp format: 20030912122142
-				// Y = 2003 M = 09 D = 12 H = 12 M = 21 S = 42	
-										
-				format(mquery, 1023, "DELETE FROM `%s` WHERE `time` + %d < now()",mysqltablename, DAYS_BEFORE_DELETE * 1000000) 
+				if (iSQLtype == SQL_MYSQL) {
+					// Timestamp format: 20030912122142
+					// Y = 2003 M = 09 D = 12 H = 12 M = 21 S = 42	
+					format(mquery, 1023, "DELETE FROM `%s` WHERE `time` + %d < now()", mysqltablename, DAYS_BEFORE_DELETE * 1000000)
+				} else if (iSQLtype == SQL_SQLITE) {
+					// Timestamp format: 2003-09-12 12:21:42
+					// Y = 2003 M = 09 D = 12 H = 12 M = 21 S = 42
+					format(mquery, 1023, "DELETE FROM `%s` WHERE ((julianday(`time`) + %d) < julianday('now'))", mysqltablename, DAYS_BEFORE_DELETE)
+				}
 				//console_print(0,mquery)			
+				#if SQL_DEBUG
+					log_amx("[WC3] dbi_query(%d, %s)", mysql, mquery)
+				#endif
 				dbi_query(mysql,mquery)
 				dbi_check_error()
+
+				if (iSQLtype == SQL_SQLITE) {
+					format(mquery, 1023, "VACUUM `%s`", mysqltablename)
+					#if SQL_DEBUG
+						log_amx("[WC3] dbi_query(%d, %s)", mysql, mquery)
+					#endif
+					dbi_query(mysql, mquery)
+					dbi_check_error()
+				}
+				log_amx("[WC3] The %s Database was successfully pruned %sat %s:%s", SQLtype, (iSQLtype == SQL_SQLITE) ? "and vacuumed " : "", currentHour, currentMin)
 			}
 		#endif
 		dbi_close(mysql)
@@ -8577,40 +8701,40 @@ public wc3_givexp(id,level,cid)
 public wc3_menuMain(id)
 {
         new pos = 0
-        new menu_body[512]
+        new menubody[512]
 	new keys = (1<<0)|(1<<1)|(1<<2)|(1<<9)
 	#if LANG_ENG
-		new menu_items[3][]= {  "Commands",
+		new menuitems[3][]= {	"Commands",
 					"Settings",
 					"Help" }
-		pos += format(menu_body[pos], 511-pos, "\yWarCraft3 XP Menu^n^n")	
+		pos += format(menubody[pos], 511-pos, "\yWarCraft3 XP Menu^n^n")	
 	#endif
 	#if LANG_GER
-		new menu_items[3][]= {  "Befehle",
+		new menuitems[3][]= {	"Befehle",
 					"Einstellungen",
 					"Hilfe" }	
-		pos += format(menu_body[pos], 511-pos, "\yWarCraft3 XP Menue^n^n")
+		pos += format(menubody[pos], 511-pos, "\yWarCraft3 XP Menue^n^n")
 	#endif
 	#if LANG_FRE
-		new menu_items[3][]= {  "Commande",
+		new menuitems[3][]= {	"Commande",
 					"Arrangements",
 					"Aide" }	
-		pos += format(menu_body[pos], 511-pos, "\yMenu de WarCraft3 XP^n^n")
+		pos += format(menubody[pos], 511-pos, "\yMenu de WarCraft3 XP^n^n")
 	#endif
 	for (new i = 0; i<3; i++)
 	{
-		pos += format(menu_body[pos], 511-pos, "\w%d. %s^n",i+1,menu_items[i])
+		pos += format(menubody[pos], 511-pos, "\w%d. %s^n",i+1,menuitems[i])
 	}
 	#if LANG_ENG
-		pos += format(menu_body[pos], 511-pos, "^n\w0. Exit")
+		pos += format(menubody[pos], 511-pos, "^n\w0. Exit")
 	#endif
 	#if LANG_GER
-		pos += format(menu_body[pos], 511-pos, "^n\w0. Schliessen")
+		pos += format(menubody[pos], 511-pos, "^n\w0. Schliessen")
 	#endif
 	#if LANG_FRE
-		pos += format(menu_body[pos], 511-pos, "^n\w0. Quitter")
+		pos += format(menubody[pos], 511-pos, "^n\w0. Quitter")
 	#endif	
-        show_menu(id,keys,menu_body,-1)
+        show_menu(id,keys,menubody,-1)
         return PLUGIN_HANDLED
 }
 
@@ -8630,75 +8754,75 @@ public do_wc3menuMain(id,key){
 public wc3_menuCommand(id)
 {
         new pos = 0
-        new menu_body[512]
+        new menubody[512]
         #if ITEMS_DROPABLE
 	new keys = (1<<0)|(1<<1)|(1<<2)|(1<<3)|(1<<4)|(1<<9)
 	#if LANG_ENG
-		new menu_items[5][]= {	"Change Race",
+		new menuitems[5][]= {	"Change Race",
 					"Select Skills",
 					"Player Skills",
 					"Buy Item",
 					"Drop Item" }
-		pos += format(menu_body[pos], 511-pos, "\yCommands - WarCraft3 XP Menu^n^n")
+		pos += format(menubody[pos], 511-pos, "\yCommands - WarCraft3 XP Menu^n^n")
 	#endif
 	#if LANG_GER
-		new menu_items[5][]= {	"Rasse wechseln",
+		new menuitems[5][]= {	"Rasse wechseln",
 					"Waehle Skills",
 					"Spieler Skills",
 					"Item kaufen",
 					"Item fallenlassen" }
-		pos += format(menu_body[pos], 511-pos, "\yBefehle - WarCraft3 XP Menue^n^n")
+		pos += format(menubody[pos], 511-pos, "\yBefehle - WarCraft3 XP Menue^n^n")
 	#endif
 	#if LANG_FRE
-		new menu_items[5][]= {	"Changer de Race",
+		new menuitems[5][]= {	"Changer de Race",
 					"Choisis ta Competence",
 					"Competences des Joueurs",
 					"Menu d'Achat",
 					"Drop Item" }	
-		pos += format(menu_body[pos], 511-pos, "\yCommande - Menu de WarCraft3 XP^n^n")
+		pos += format(menubody[pos], 511-pos, "\yCommande - Menu de WarCraft3 XP^n^n")
 	#endif
 	for (new i = 0; i<5; i++)
 	{
-		pos += format(menu_body[pos], 511-pos, "\w%d. %s^n",i+1,menu_items[i])
+		pos += format(menubody[pos], 511-pos, "\w%d. %s^n",i+1,menuitems[i])
 	}
 	#else
 	new keys = (1<<0)|(1<<1)|(1<<2)|(1<<3)|(1<<9)
 	#if LANG_ENG
-		new menu_items[4][]= {	"Change Race",
+		new menuitems[4][]= {	"Change Race",
 					"Select Skills",
 					"Player Skills",
 					"Shop Menu" }
-		pos += format(menu_body[pos], 511-pos, "\yCommands - WarCraft3 XP Menu^n^n")
+		pos += format(menubody[pos], 511-pos, "\yCommands - WarCraft3 XP Menu^n^n")
 	#endif
 	#if LANG_GER
-		new menu_items[4][]= {	"Rasse wechseln",
+		new menuitems[4][]= {	"Rasse wechseln",
 					"Waehle Skills",
 					"Spieler Skills",
 					"Shop Menue" }
-		pos += format(menu_body[pos], 511-pos, "\yBefehle - WarCraft3 XP Menue^n^n")
+		pos += format(menubody[pos], 511-pos, "\yBefehle - WarCraft3 XP Menue^n^n")
 	#endif
 	#if LANG_FRE
-		new menu_items[4][]= {	"Changer de Race",
+		new menuitems[4][]= {	"Changer de Race",
 					"Choisis ta Competence",
 					"Competences des Joueurs",
 					"Menu d'Achat" }	
-		pos += format(menu_body[pos], 511-pos, "\yCommande - Menu de WarCraft3 XP^n^n")
+		pos += format(menubody[pos], 511-pos, "\yCommande - Menu de WarCraft3 XP^n^n")
 	#endif
 	for (new i = 0; i<4; i++)
 	{
-		pos += format(menu_body[pos], 511-pos, "\w%d. %s^n",i+1,menu_items[i])
+		pos += format(menubody[pos], 511-pos, "\w%d. %s^n",i+1,menuitems[i])
 	}	
 	#endif
 	#if LANG_ENG
-		pos += format(menu_body[pos], 511-pos, "^n\w0. Exit")
+		pos += format(menubody[pos], 511-pos, "^n\w0. Exit")
 	#endif
 	#if LANG_GER
-		pos += format(menu_body[pos], 511-pos, "^n\w0. Schliessen")
+		pos += format(menubody[pos], 511-pos, "^n\w0. Schliessen")
 	#endif
 	#if LANG_FRE
-		pos += format(menu_body[pos], 511-pos, "^n\w0. Quitter")
+		pos += format(menubody[pos], 511-pos, "^n\w0. Quitter")
 	#endif	
-        show_menu(id,keys,menu_body,-1)
+        show_menu(id,keys,menubody,-1)
         return PLUGIN_HANDLED
 }
 
@@ -8723,57 +8847,57 @@ public do_wc3menuCommand(id,key)
 public wc3_menuSetting(id)
 {
         new pos = 0
-        new menu_body[512]
+        new menubody[512]
         #if OPT_RESETSKILLS
 	new keys = (1<<0)|(1<<1)|(1<<9)
 	#if LANG_ENG
-		new menu_items[2][]= {	"Toggle Icons",
+		new menuitems[2][]= {	"Toggle Icons",
 					"Reset Skills" }
-		pos += format(menu_body[pos], 511-pos, "\ySettings - WarCraft3 XP Menu^n^n")
+		pos += format(menubody[pos], 511-pos, "\ySettings - WarCraft3 XP Menu^n^n")
 	#endif
 	#if LANG_GER
-		new menu_items[2][]= {	"Toggle Icons",
+		new menuitems[2][]= {	"Toggle Icons",
 					"Reset Skills" }
-		pos += format(menu_body[pos], 511-pos, "\yEinstellungen - WarCraft3 XP Menue^n^n")
+		pos += format(menubody[pos], 511-pos, "\yEinstellungen - WarCraft3 XP Menue^n^n")
 	#endif
 	#if LANG_FRE
-		new menu_items[2][]= {	"Toggle Icons",
+		new menuitems[2][]= {	"Toggle Icons",
 					"Annule les Competences" }	
-		pos += format(menu_body[pos], 511-pos, "\yArrangements - Menu de WarCraft3 XP^n^n")
+		pos += format(menubody[pos], 511-pos, "\yArrangements - Menu de WarCraft3 XP^n^n")
 	#endif
 	for (new i = 0; i<2; i++)
 	{
-		pos += format(menu_body[pos], 511-pos, "\w%d. %s^n",i+1,menu_items[i])
+		pos += format(menubody[pos], 511-pos, "\w%d. %s^n",i+1,menuitems[i])
 	}
 	#else
 	new keys = (1<<0)|(1<<9)
 	#if LANG_ENG
-		new menu_items[1][]= {	"Toggle Icons" }
-		pos += format(menu_body[pos], 511-pos, "\ySettings - WarCraft3 XP Menu^n^n")
+		new menuitems[1][]= {	"Toggle Icons" }
+		pos += format(menubody[pos], 511-pos, "\ySettings - WarCraft3 XP Menu^n^n")
 	#endif
 	#if LANG_GER
-		new menu_items[1][]= {	"Toggle Icons" }
-		pos += format(menu_body[pos], 511-pos, "\yEinstellungen - WarCraft3 XP Menue^n^n")
+		new menuitems[1][]= {	"Toggle Icons" }
+		pos += format(menubody[pos], 511-pos, "\yEinstellungen - WarCraft3 XP Menue^n^n")
 	#endif
 	#if LANG_FRE
-		new menu_items[1][]= {	"Toggle Icons" }	
-		pos += format(menu_body[pos], 511-pos, "\yArrangements - Menu de WarCraft3 XP^n^n")
+		new menuitems[1][]= {	"Toggle Icons" }	
+		pos += format(menubody[pos], 511-pos, "\yArrangements - Menu de WarCraft3 XP^n^n")
 	#endif
 	for (new i = 0; i<1; i++)
 	{
-		pos += format(menu_body[pos], 511-pos, "\w%d. %s^n",i+1,menu_items[i])
+		pos += format(menubody[pos], 511-pos, "\w%d. %s^n",i+1,menuitems[i])
 	}	
 	#endif
 	#if LANG_ENG
-		pos += format(menu_body[pos], 511-pos, "^n\w0. Exit")
+		pos += format(menubody[pos], 511-pos, "^n\w0. Exit")
 	#endif
 	#if LANG_GER
-		pos += format(menu_body[pos], 511-pos, "^n\w0. Schliessen")
+		pos += format(menubody[pos], 511-pos, "^n\w0. Schliessen")
 	#endif
 	#if LANG_FRE
-		pos += format(menu_body[pos], 511-pos, "^n\w0. Quitter")
+		pos += format(menubody[pos], 511-pos, "^n\w0. Quitter")
 	#endif	
-        show_menu(id,keys,menu_body,-1)
+        show_menu(id,keys,menubody,-1)
         return PLUGIN_HANDLED  
 }
 
@@ -8795,40 +8919,40 @@ public do_wc3menuSetting(id,key)
 public wc3_menuHelp(id)
 {
         new pos = 0
-        new menu_body[512]
+        new menubody[512]
 	new keys = (1<<0)|(1<<1)|(1<<2)|(1<<9)
 	#if LANG_ENG
-		new menu_items[3][]= {	"War3 Help",
+		new menuitems[3][]= {	"War3 Help",
 					"Skills Info",
 					"Items Info" }
-		pos += format(menu_body[pos], 511-pos, "\yHelp - WarCraft3 XP Menu^n^n")
+		pos += format(menubody[pos], 511-pos, "\yHelp - WarCraft3 XP Menu^n^n")
 	#endif
 	#if LANG_GER
-		new menu_items[3][]= {	"War3 Hilfe",
+		new menuitems[3][]= {	"War3 Hilfe",
 					"Skills Info",
 					"Items Info" }
-		pos += format(menu_body[pos], 511-pos, "\yHilfe - WarCraft3 XP Menue^n^n")
+		pos += format(menubody[pos], 511-pos, "\yHilfe - WarCraft3 XP Menue^n^n")
 	#endif
 	#if LANG_FRE
-		new menu_items[3][]= {	"War3 Aide",
+		new menuitems[3][]= {	"War3 Aide",
 					"Info des Competences",
 					"Info sur les Objets" }	
-		pos += format(menu_body[pos], 511-pos, "\yAide - Menu de WarCraft3 XP^n^n")
+		pos += format(menubody[pos], 511-pos, "\yAide - Menu de WarCraft3 XP^n^n")
 	#endif
 	for (new i = 0; i<3; i++)
 	{
-		pos += format(menu_body[pos], 511-pos, "\w%d. %s^n",i+1,menu_items[i])
+		pos += format(menubody[pos], 511-pos, "\w%d. %s^n",i+1,menuitems[i])
 	}
 	#if LANG_ENG
-		pos += format(menu_body[pos], 511-pos, "^n\w0. Exit")
+		pos += format(menubody[pos], 511-pos, "^n\w0. Exit")
 	#endif
 	#if LANG_GER
-		pos += format(menu_body[pos], 511-pos, "^n\w0. Schliessen")
+		pos += format(menubody[pos], 511-pos, "^n\w0. Schliessen")
 	#endif
 	#if LANG_FRE
-		pos += format(menu_body[pos], 511-pos, "^n\w0. Quitter")
+		pos += format(menubody[pos], 511-pos, "^n\w0. Quitter")
 	#endif	
-        show_menu(id,keys,menu_body,-1)
+        show_menu(id,keys,menubody,-1)
         return PLUGIN_HANDLED        
 }
 
@@ -9204,15 +9328,6 @@ public set_team(id) {
   }
 }
 
-public inconsistent_file(id, const filename[], reason[256] ){
-   new name[MAX_NAME_LENGTH]
-   get_user_name(id,name,MAX_NAME_LENGTH-1)
-   server_print("I: %s for %s",filename,name)
-   server_print("R: %s",reason)
-   format(reason,255,"File %s may be outdated or modified",filename)
-   return PLUGIN_HANDLED
-}
-
 // ferret note - I've temporarily turned this off, all it does it return PLUGIN_HANDLED for now.
 // It interfered with demo recording.
 public cmdFullUpdate(id,level,cid){
@@ -9245,8 +9360,8 @@ public plugin_init()
 	gmsgShake = get_user_msgid("ScreenShake")
 	gmsgStatusText = get_user_msgid("StatusText")
 
-	register_plugin("Warcraft 3 XP","2.6","ferret (Dopefish/Spacedude)")
-	register_cvar("Warcraft_3_XP", "2.6",FCVAR_SERVER)
+	register_plugin("Warcraft 3 XP","2.6.1","ferret (Dopefish/Spacedude)")
+	register_cvar("Warcraft_3_XP", "2.6.1",FCVAR_SERVER)
 
 	#if LANG_ENG
 		register_menucmd(register_menuid("\yWarCraft3 XP Menu"),(1<<0)|(1<<1)|(1<<2)|(1<<9),"do_wc3menuMain")
@@ -9749,5 +9864,4 @@ public convert_to_vault()
 
 #endif
 #endif
-
 
