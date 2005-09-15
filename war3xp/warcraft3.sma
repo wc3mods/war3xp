@@ -3,7 +3,7 @@
 *  Warcraft 3 XP 
 *  Original idea and code by SpaceDude 
 *
-*  Version 2.6.1
+*  Version 2.6.2
 *
 *  Read readme.txt for a desription of the plugin.
 *  Read installer.txt for installation information.
@@ -502,6 +502,7 @@ new Float:p_trueshot[3] = {0.13,0.27,0.40}	// Trueshot Aura (skill 3)
 	#if MYSQL_ENABLED
 		#include <dbi>
 		new Sql:mysql
+		new Result:res
 		new mysqltablename[64]
 		new const g_MySQL[] = "MySQL"
 		new const g_SQLite[] = "SQLite"
@@ -2463,38 +2464,41 @@ public set_skill(id,key){
 }
 
 public change_race(id,saychat){
+
 	if (warcraft3==false)
 		return PLUGIN_CONTINUE
 
         if (p_skills[id][0]==0)
                 select_race(id)
-
-        if (is_user_alive(id) && !bFreezeTime){
-                if (saychat==1){
-                        set_hudmessage(200, 100, 0, -1.0, 0.3, 0, 1.0, 5.0, 0.1, 0.2, 3)
-			#if LANG_ENG
-	                        show_hudmessage(id,"You can only change your race when you are dead or at the beginning of the round!")
-			#endif
-			#if LANG_GER
-	                        show_hudmessage(id,"Du kannst die Rasse nur wechseln wenn du Tot bist oder am Anfang der Runde!")
-			#endif
-			#if LANG_FRE
-	                        show_hudmessage(id,"Tu peux seulement changer de race lorsque tu es mort ou en debut de round!")
-			#endif			
-                }
-                else{
-			#if LANG_ENG
-	                        client_cmd(id,"echo You can only change your race when you are dead or at the beginning of the round!")
-			#endif
-			#if LANG_GER
-	                        client_cmd(id,"echo Du kannst die Rasse nur wechseln wenn du Tot bist oder am Anfang der Runde!")
-			#endif
-			#if LANG_FRE
-	                        client_cmd(id,"echo Tu peux seulement changer de race lorsque tu es mort ou en debut de round!")
-			#endif			
-                }
-                return PLUGIN_CONTINUE
-        }
+		
+        if (get_cvar_num("mp_changeracepastfreezetime")==0){
+		if (is_user_alive(id) && !bFreezeTime){
+			if (saychat==1){
+				set_hudmessage(200, 100, 0, -1.0, 0.3, 0, 1.0, 5.0, 0.1, 0.2, 3)
+				#if LANG_ENG
+					show_hudmessage(id,"You can only change your race when you are dead or at the beginning of the round!")
+				#endif
+				#if LANG_GER
+					show_hudmessage(id,"Du kannst die Rasse nur wechseln wenn du Tot bist oder am Anfang der Runde!")
+				#endif
+				#if LANG_FRE
+					show_hudmessage(id,"Tu peux seulement changer de race lorsque tu es mort ou en debut de round!")
+				#endif			
+			}
+			else{
+				#if LANG_ENG
+					client_cmd(id,"echo You can only change your race when you are dead or at the beginning of the round!")
+				#endif
+				#if LANG_GER
+					client_cmd(id,"echo Du kannst die Rasse nur wechseln wenn du Tot bist oder am Anfang der Runde!")
+				#endif
+				#if LANG_FRE
+					client_cmd(id,"echo Tu peux seulement changer de race lorsque tu es mort ou en debut de round!")
+				#endif			
+			}
+			return PLUGIN_CONTINUE
+		}
+	}
 
 	if (get_cvar_num("mp_allowchangerace")==1 || p_skills[id][0]==0){
 		#if !SHORT_TERM
@@ -2641,26 +2645,31 @@ public select_race(id){
 	#endif	
 	show_menu(id,(1<<0)|(1<<1)|(1<<2)|(1<<3)|(1<<4)|(1<<5)|(1<<6)|(1<<7)|(1<<8),menu_msg,-1)
 	#endif
+
 	return PLUGIN_CONTINUE
 }
 
 public set_race(id,key)
 {
-	if (is_user_alive(id) && !bFreezeTime)
+
+        if (get_cvar_num("mp_changeracepastfreezetime")==0)
 	{
-		changingrace[id]=false
-		set_hudmessage(200, 100, 0, -1.0, 0.3, 0, 1.0, 5.0, 0.1, 0.2, 3)
-		#if LANG_ENG	
-			show_hudmessage(id,"You must select your race while dead or during freezetime!")
-		#endif
-		#if LANG_GER
-			show_hudmessage(id,"Du muss deine Rasse waehlen beim Freezetime am Rundenanfang oder wenn du Tot bist!")
-		#endif
-		#if LANG_FRE
-			show_hudmessage(id,"Tu dois choisir ta race lorsque tu es mort ou pendant freezetime!")
-		#endif		
-	
-		return PLUGIN_CONTINUE
+		if (is_user_alive(id) && !bFreezeTime)
+		{
+			changingrace[id]=false
+			set_hudmessage(200, 100, 0, -1.0, 0.3, 0, 1.0, 5.0, 0.1, 0.2, 3)
+			#if LANG_ENG	
+				show_hudmessage(id,"You must select your race while dead or during freezetime!")
+			#endif
+			#if LANG_GER
+				show_hudmessage(id,"Du muss deine Rasse waehlen beim Freezetime am Rundenanfang oder wenn du Tot bist!")
+			#endif
+			#if LANG_FRE
+				show_hudmessage(id,"Tu dois choisir ta race lorsque tu es mort ou pendant freezetime!")
+			#endif		
+
+			return PLUGIN_CONTINUE
+		}
 	}
 
 	new oldrace = p_skills[id][0]
@@ -3566,6 +3575,10 @@ public damage_event(id){
 			weaponname = "ump45"
 		case 13:
 			weaponname = "sg550"
+		case 14:
+			weaponname = "galil"
+		case 15:
+			weaponname = "famas"
 		case 16:
 			weaponname = "usp"
 		case 17:
@@ -3633,7 +3646,7 @@ public damage_event(id)
 	new iParm[2]
 	iParm[0] = id
 	iParm[1] = 0
-	
+
 	#if EXPANDED_RACES
 	// Dwarf Avatar
 	// ------------
@@ -4697,7 +4710,7 @@ public say_level(id){
 		return PLUGIN_CONTINUE
 
 	displaylevel(id, 0)
-	return PLUGIN_CONTINUE
+	return PLUGIN_HANDLED
 }
 
 public player_skills(id,saychat){
@@ -5274,6 +5287,7 @@ public war3_info(id){
 	console_print(id,"sv_warcraft3 - Enable/Disable the plugin (default 1, enabled)")
 	console_print(id,"sv_allowwar3vote - Enabled/Disable voting (default 1, enabled)")
 	console_print(id,"mp_allowchangerace - Allow people to change race during the game (default 0, disabled)")
+	console_print(id,"mp_changeracepastfreezetime - Allow people to change race while alive (default 0, disabled)")
         console_print(id,"mp_weaponxpmodifier - gives additional XP for using certain weaker weapons (default 1, enabled)")
 	console_print(id,"mp_savexp - save XP to a txt file and restore it when player reconnects (default 0)")
 	console_print(id,"mp_xpmultiplier - set the level required to gain a level as a multiple (default 1.0)")
@@ -5293,6 +5307,7 @@ public war3_info(id){
         console_print(id,"sv_warcraft3 - Das Plugin An/Aus schalten (Standard 1, an)")
         console_print(id,"sv_allowwar3vote - Abstimmungen erlauben/verbieten (Standard 1, an)")
         console_print(id,"mp_allowchangerace - Ermoeglicht Leuten waehrend des Spiels die Rasse zu wechseln (Standard 0, aus)")
+        console_print(id,"mp_changeracepastfreezetime - Erlauben Sie Leuten, Rennen zu ändern, wenn lebendig (Standard 0, aus)")
         console_print(id,"mp_weaponxpmodifier - Mehr Erfahrung fuer das Nutzen schwaecherer Waffen (Standard 1, an)")
         console_print(id,"mp_savexp - Speichert die Erfahrung in eine txt Datei und stellt sie wieder her, wenn ein Spieler wiederkommt (Standard 0)")
         console_print(id,"mp_xpmultiplier - Stellt die Erfahrung als ein Multiplikator ein, die benoetigt wird, um ein Level aufzusteigen (Standard 1.0)")
@@ -5315,6 +5330,7 @@ public war3_info(id){
         console_print(id,"sv_warcraft3 - Active ou desactive le plugin (par defaut 1, active)")
         console_print(id,"sv_allowwar3vote - Active ou desactive le vote (par defaut 1, active)")
         console_print(id,"mp_allowchangerace - Permet de changer de race pendant le jeu (par defaut 0, desactive)")
+        console_print(id,"mp_changeracepastfreezetime - Permet de changer de race tandis que vivant (par defaut 0, desactive)")
         console_print(id,"mp_weaponxpmodifier - Donne de l'XP supplementaire lorsque tu utilises certaines armes plus faibles (par defaut 1, active)")
         console_print(id,"mp_savexp -  Sauvegarde l'XP dans un fichier txt et le reprend quand un joueur se reconnecte (par defaut 0)")
         console_print(id,"mp_xpmultiplier - Definit le nombre d'XP necessaires pour gagner un Level par rapport e la normale (par defaut 1.0)")
@@ -6054,7 +6070,7 @@ public troll_healingwand(iParm[2])
 		iTarget = iPlayers[i]
 		get_user_origin(iTarget,iTargetOrigin)
 		iDistance = get_distance(iOrigin,iTargetOrigin)
-		if(iDistance < HEALINGWAND_RANGE && get_user_team(iParm[0]) == get_user_team(iTarget) && playeritem[iTarget] != IMMUNITY && get_user_health(iTarget) < ((p_skills[iTarget][0]==2 ? (p_skills[iTarget][2] ? p_devotion[p_skills[iTarget][2]-1] : 100) : 100) + (playeritem[iTarget]==HEALTH ? HEALTHBONUS : 0)) && is_user_alive(iTarget))
+		if(iDistance < HEALINGWAND_RANGE && get_user_team(iParm[0]) == get_user_team(iTarget) && (playeritem[iTarget] != IMMUNITY || iTarget == iParm[0]) && get_user_health(iTarget) < ((p_skills[iTarget][0]==2 ? (p_skills[iTarget][2] ? p_devotion[p_skills[iTarget][2]-1] : 100) : 100) + (playeritem[iTarget]==HEALTH ? HEALTHBONUS : 0)) && is_user_alive(iTarget))
 		{
 			new iHealParm[2]
 			iHealParm[0] = iParm[0]
@@ -7740,36 +7756,39 @@ public armor_type(id){ // ferret- this might be useful
 	return PLUGIN_CONTINUE
 }
 
-public check_say(id)
+public say_changerace(id)
 {
-	new said[32]
-	read_args(said,31) 
+	change_race(id,1)
+	return PLUGIN_CONTINUE
+}
 
-	if (equali(said,"^"/changerace^"") || equali(said,"^"changerace^""))
-		change_race(id,1)
-	else if (equali(said,"^"/selectskill^"") || equali(said,"^"selectskill^""))
-		select_skill(id,1)
-	else if (equali(said,"^"/playerskills^"") || equali(said,"^"playerskills^""))
-		player_skills(id,1)
-	else if (equali(said,"^"/skillsinfo^"") || equali(said,"^"skillsinfo^""))
-		skills_info(id,1)
-	else if (equali(said,"^"/war3vote^"") || equali(said,"^"war3vote^""))
-		war3_vote(id,1)
-	else if (equali(said,"^"/war3help^"") || equali(said,"^"war3help^"") || equali(said,"^"/wc3help^"") || equali(said,"^"wc3help^""))
-		saywar3_info(id)	
-	else if (equali(said,"^"/level^"") || equali(said,"^"level^""))
-		say_level(id)
-	else if (equali(said,"^"/itemsinfo^"") || equali(said,"^"itemsinfo^""))
-		items_info(id,1)
-        else if (equali(said,"^"/war3menu^"") || equali(said,"^"war3menu^""))
-                wc3_menuMain(id)
-	else if (equali(said,"^"/icons^"") || equali(said,"^"icons^""))
-                icons(id)                
-        else if (equali(said,"^"/savexp^"") || equali(said,"^"savexp^""))
-        	save_xp_info(id)
-        else if (equali(said,"^"/shopmenu^"") || equali(said,"^"shopmenu^""))
-        	shopmenu(id)  
+public say_selectskill(id)
+{
+	select_skill(id,1)
+	return PLUGIN_CONTINUE
+}
 
+public say_playerskills(id)
+{
+	player_skills(id,1)
+	return PLUGIN_CONTINUE
+}
+
+public say_skillsinfo(id)
+{
+	skills_info(id,1)
+	return PLUGIN_CONTINUE
+}
+
+public say_war3vote(id)
+{
+	war3_vote(id,1)
+	return PLUGIN_CONTINUE
+}
+
+public say_itemsinfo(id)
+{
+	items_info(id,1)
 	return PLUGIN_CONTINUE
 }
 
@@ -7887,19 +7906,19 @@ public write_all(){
 				#if SQL_DEBUG
 					log_amx("[WC3] dbi_query(%d, 'SET AUTOCOMMIT=0')", mysql)
 				#endif
-				dbi_query(mysql, "SET AUTOCOMMIT=0")
-				dbi_check_error()
+				res = dbi_query(mysql, "SET AUTOCOMMIT=0")
+				dbi_check_error(res)
 				#if SQL_DEBUG
 					log_amx("[WC3] dbi_query(%d, 'START TRANSACTION')", mysql)
 				#endif
-				dbi_query(mysql, "START TRANSACTION")
-				dbi_check_error()
+				res = dbi_query(mysql, "START TRANSACTION")
+				dbi_check_error(res)
 			} else if (iSQLtype == SQL_SQLITE) {
 				#if SQL_DEBUG
 					log_amx("[WC3] dbi_query(%d, 'BEGIN TRANSACTION')", mysql)
 				#endif
-				dbi_query(mysql, "BEGIN TRANSACTION")
-				dbi_check_error()
+				res = dbi_query(mysql, "BEGIN TRANSACTION")
+				dbi_check_error(res)
 			}
 		#endif
 		for (new i=0; i<numofplayers; i++){
@@ -7911,8 +7930,8 @@ public write_all(){
 			#if SQL_DEBUG
 				log_amx("[WC3] dbi_query(%d, 'COMMIT')", mysql)
 			#endif
-			dbi_query(mysql, "COMMIT")
-			dbi_check_error()
+			res = dbi_query(mysql, "COMMIT")
+			dbi_check_error(res)
 		#endif
 	}
 	
@@ -7961,8 +7980,8 @@ public write_xp_to_file(id,givenline[128]){
 		#if SQL_DEBUG
 			log_amx("[WC3] dbi_query(%d, %s)", mysql, mquery)
 		#endif
-		dbi_query(mysql,mquery)
-		dbi_check_error()
+		res = dbi_query(mysql,mquery)
+		dbi_check_error(res)
 	#else
 		if (id && playerxp[id] && p_skills[id][0])
 		{
@@ -8029,32 +8048,28 @@ public get_xp_from_file(id,returnrace){
 		if (returnrace)
 		{
 			if (get_cvar_num("mp_savebyname")==1)
-				format(mquery, 1023, "SELECT * FROM `%s` WHERE (`playername` = '%s')",mysqltablename,playername)
+				format(mquery, 1023, "SELECT `xp`, `race` FROM `%s` WHERE (`playername` = '%s')",mysqltablename,playername)
 			else
-				format(mquery, 1023, "SELECT * FROM `%s` WHERE (`playerid` = '%s')",mysqltablename,playerid)
+				format(mquery, 1023, "SELECT `xp`, `race` FROM `%s` WHERE (`playerid` = '%s')",mysqltablename,playerid)
 
 			#if SQL_DEBUG
 				log_amx("[WC3] dbi_query(%d, %s)", mysql, mquery)
 			#endif
-			new Result:res = dbi_query(mysql,mquery)
-			#if SQL_DEBUG
-				log_amx("[WC3] res=%d", res)
-			#endif
-			dbi_check_error()
+			res = dbi_query(mysql,mquery)
+			dbi_check_error(res)
 
 			if (res > RESULT_NONE) 
 			{
 				while (dbi_nextrow(res))
 				{
-					dbi_field(res,3,xp,7)
-					dbi_field(res,4,race,1)
+					dbi_field(res,1,xp,7)
+					dbi_field(res,2,race,1)
 					#if !EXPANDED_RACES
 					if (str_to_num(race)>=1 && str_to_num(race)<=4)
 					#else
 					if (str_to_num(race)>=1 && str_to_num(race)<=8)
 					#endif
 						racexp[str_to_num(race)-1] = str_to_num(xp)
-					dbi_check_error()
 				}
 				dbi_free_result(res)
 			}
@@ -8070,32 +8085,32 @@ public get_xp_from_file(id,returnrace){
 		else
 		{
 			if (get_cvar_num("mp_savebyname")==1)
-				format(mquery, 1023, "SELECT * FROM `%s` WHERE (`playername` = '%s' AND `race` = %d)",mysqltablename,playername,p_skills[id][0])
+				format(mquery, 1023, "SELECT `xp`, `skill1`, `skill2`, `skill3`, `skill4` FROM `%s` WHERE (`playername` = '%s' AND `race` = %d)",mysqltablename,playername,p_skills[id][0])
 			else
-				format(mquery, 1023, "SELECT * FROM `%s` WHERE (`playerid` = '%s' AND `race` = %d)",mysqltablename,playerid,p_skills[id][0])
+				format(mquery, 1023, "SELECT `xp`, `skill1`, `skill2`, `skill3`, `skill4` FROM `%s` WHERE (`playerid` = '%s' AND `race` = %d)",mysqltablename,playerid,p_skills[id][0])
 
 			#if SQL_DEBUG
 				log_amx("[WC3] dbi_query(%d, %s)", mysql, mquery)
 			#endif
-			new Result:res = dbi_query(mysql,mquery)
-			#if SQL_DEBUG
-				log_amx("[WC3] res=%d", res)
-			#endif
-			dbi_check_error()
-			if (res > RESULT_NONE && dbi_nextrow(res)) {
-				dbi_field(res,3,xp,7)
-				dbi_field(res,5,skill1,1)
-				dbi_field(res,6,skill2,1)
-				dbi_field(res,7,skill3,1)
-				dbi_field(res,8,skill4,1)
-				dbi_free_result(res)
+			res = dbi_query(mysql,mquery)
+			dbi_check_error(res)
 
-				playerxp[id]=str_to_num(xp)
-				p_skills[id][1]=str_to_num(skill1)
-				p_skills[id][2]=str_to_num(skill2)
-				p_skills[id][3]=str_to_num(skill3)
-				p_skills[id][4]=str_to_num(skill4)
-				displaylevel(id,0)
+			if (res > RESULT_NONE) {
+				if (dbi_nextrow(res)) {
+					dbi_field(res,1,xp,7)
+					dbi_field(res,2,skill1,1)
+					dbi_field(res,3,skill2,1)
+					dbi_field(res,4,skill3,1)
+					dbi_field(res,5,skill4,1)
+
+					playerxp[id]=str_to_num(xp)
+					p_skills[id][1]=str_to_num(skill1)
+					p_skills[id][2]=str_to_num(skill2)
+					p_skills[id][3]=str_to_num(skill3)
+					p_skills[id][4]=str_to_num(skill4)
+					displaylevel(id,0)
+				}
+				dbi_free_result(res)
 			}
 			else{
 				playerxp[id]=0
@@ -8209,10 +8224,12 @@ public get_xp_from_file(id,returnrace){
 				`skill4` TINYINT(4) NOT NULL DEFAULT 0, `time` TIMESTAMP(14) NOT NULL, PRIMARY KEY (`playerid`, `race`))", \
 				mysqltablename)
 		else if (iSQLtype == SQL_SQLITE)
-			format(mquery, 511, "CREATE TABLE `%s` (`playerid` TEXT NOT NULL DEFAULT '', `playername` TEXT NOT NULL DEFAULT '', \
-				`xp` INTEGER NOT NULL DEFAULT 0, `race` INTEGER NOT NULL DEFAULT 0, `skill1` INTEGER NOT NULL DEFAULT 0, \
-				`skill2` INTEGER NOT NULL DEFAULT 0, `skill3` INTEGER NOT NULL DEFAULT 0, `skill4` INTEGER NOT NULL DEFAULT 0, \
-				`time` TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (`playerid`, `race`))", mysqltablename)
+			format(mquery, 511, "CREATE TABLE `%s` (`playerid` VARCHAR(35) NOT NULL DEFAULT '', \
+				`playername` VARCHAR(35) NOT NULL DEFAULT '', `xp` INT(11) NOT NULL DEFAULT 0, \
+				`race` TINYINT(4) NOT NULL DEFAULT 0, `skill1` TINYINT(4) NOT NULL DEFAULT 0, \
+				`skill2` TINYINT(4) NOT NULL DEFAULT 0, `skill3` TINYINT(4) NOT NULL DEFAULT 0, \
+				`skill4` TINYINT(4) NOT NULL DEFAULT 0, `time` TIMESTAMP(14) NOT NULL DEFAULT CURRENT_TIMESTAMP, \
+				PRIMARY KEY (`playerid`, `race`))", mysqltablename)
 
 		if (file_exists(filename)){
 			nextline = read_file(filename,nextline,mhost,63,textlength)
@@ -8245,8 +8262,8 @@ public get_xp_from_file(id,returnrace){
 			#if SQL_DEBUG
 				log_amx("[WC3] dbi_query(%d, %s)", mysql, mquery)
 			#endif
-			dbi_query(mysql,mquery)
-			dbi_check_error()
+			res = dbi_query(mysql,mquery)
+			dbi_check_error(res)
 		}
 
 		if (iSQLtype == SQL_SQLITE) {
@@ -8264,8 +8281,8 @@ public get_xp_from_file(id,returnrace){
 			#if SQL_DEBUG
 				log_amx("[WC3] dbi_query(%d, %s)", mysql, mquery)
 			#endif
-			new Result:res = dbi_query(mysql, mquery)
-			dbi_check_error()
+			res = dbi_query(mysql, mquery)
+			dbi_check_error(res)
 
 			while (res && dbi_nextrow(res)>0) {
 				dbi_result(res, "integrity_check", int_check, 63)
@@ -8285,21 +8302,29 @@ public get_xp_from_file(id,returnrace){
 			#if SQL_DEBUG
 				log_amx("[WC3] dbi_query(%d, %s)", mysql, mquery)
 			#endif
-			dbi_query(mysql, mquery)
-			dbi_check_error()
+			res = dbi_query(mysql, mquery)
+			dbi_check_error(res)
 		}
 		return PLUGIN_CONTINUE
 	}
 
-	public dbi_check_error(){
+	public dbi_check_error(Result:Res){
 		new merror[256]
-		#if SQL_DEBUG
-			log_amx("[WC3] dbi_error(%d, %s, %d)", mysql, merror, 255)
-		#endif
-		dbi_error(mysql,merror,255)
 
-		if (merror[0])
-			server_print("MYSQL Error Query: %s", merror)
+		#if SQL_DEBUG
+			log_amx("[WC3] res = %d", Res)
+		#endif
+
+		if (Res == RESULT_FAILED) {
+			dbi_error(mysql,merror,255)
+			#if SQL_DEBUG
+				log_amx("[WC3] dbi_error(%d, %s, %d)", mysql, merror, strlen(merror))
+			#endif
+			server_print("[WC3] MYSQL Error Query: %s", merror)
+			dbi_close(mysql)
+			return PLUGIN_HANDLED
+		}
+		return PLUGIN_CONTINUE
 	}
 #endif
 
@@ -8335,16 +8360,16 @@ public plugin_end(){
 				#if SQL_DEBUG
 					log_amx("[WC3] dbi_query(%d, %s)", mysql, mquery)
 				#endif
-				dbi_query(mysql,mquery)
-				dbi_check_error()
+				res = dbi_query(mysql,mquery)
+				dbi_check_error(res)
 
 				if (iSQLtype == SQL_SQLITE) {
 					format(mquery, 1023, "VACUUM `%s`", mysqltablename)
 					#if SQL_DEBUG
 						log_amx("[WC3] dbi_query(%d, %s)", mysql, mquery)
 					#endif
-					dbi_query(mysql, mquery)
-					dbi_check_error()
+					res = dbi_query(mysql, mquery)
+					dbi_check_error(res)
 				}
 				log_amx("[WC3] The %s Database was successfully pruned %sat %s:%s", SQLtype, (iSQLtype == SQL_SQLITE) ? "and vacuumed " : "", currentHour, currentMin)
 			}
@@ -9112,11 +9137,11 @@ public changeXP()
 stock logKill(attacker, victim, weaponDescription[] )
   {
     //Save Hummiliation
-    new namea[MAX_NAME_LENGTH],namev[MAX_NAME_LENGTH],authida[MAX_ID_LENGTH],authidv[MAX_ID_LENGTH],teama[8],teamv[8]
+    new namea[MAX_NAME_LENGTH],namev[MAX_NAME_LENGTH],authida[MAX_ID_LENGTH],authidv[MAX_ID_LENGTH],teama[10],teamv[10]
 
     //Info On Attacker
     get_user_name(attacker,namea,MAX_NAME_LENGTH-1)
-    get_user_team(attacker,teama,7)
+    get_user_team(attacker,teama,9)
     #if SAVE_WITH_IP
         get_user_ip(attacker,authida,MAX_ID_LENGTH-1,0)
     #else
@@ -9124,7 +9149,7 @@ stock logKill(attacker, victim, weaponDescription[] )
     #endif
     //Info On Victim
     get_user_name(victim,namev,MAX_NAME_LENGTH-1)
-    get_user_team(victim,teamv,7)
+    get_user_team(victim,teamv,9)
     #if SAVE_WITH_IP
 	get_user_ip(victim,authidv,MAX_ID_LENGTH-1,0)
     #else
@@ -9310,13 +9335,15 @@ public plugin_precache() {
         force_unmodified(force_exactfile,{0,0,0},{0,0,0},"models/player/terror/terror.mdl")
         force_unmodified(force_exactfile,{0,0,0},{0,0,0},"models/player/urban/urban.mdl")
         force_unmodified(force_exactfile,{0,0,0},{0,0,0},"models/player/vip/vip.mdl")
-        set_cvar_float("mp_consistency",1.0)
+        // This is booting everybody off the server for AMX Mod X 1.5x
+        // set_cvar_num("mp_consistency",1)
 
-        server_print("[WC3] Forcing unmodified player models") 
+        if (get_cvar_num("mp_consistency")!=0)
+		server_print("[WC3] Forcing unmodified player models") 
         #if SHORT_TERM
 		server_print("[WC3] Using Engine Module, Short Term XP Modus")
         #else
-		server_print("[WC3] Using Engine Module, Long Term XP Modus, saving xp with: vault[%d] mysql[%d]",VAULT_SAVE,MYSQL_ENABLED)
+		server_print("[WC3] Using Engine Module, Long Term XP Modus, saving xp to: Vault[%d] SQL[%d]",VAULT_SAVE,MYSQL_ENABLED)
         #endif
 
 	return PLUGIN_CONTINUE
@@ -9360,8 +9387,8 @@ public plugin_init()
 	gmsgShake = get_user_msgid("ScreenShake")
 	gmsgStatusText = get_user_msgid("StatusText")
 
-	register_plugin("Warcraft 3 XP","2.6.1","ferret (Dopefish/Spacedude)")
-	register_cvar("Warcraft_3_XP", "2.6.1",FCVAR_SERVER)
+	register_plugin("Warcraft 3 XP","2.6.2","ferret (Dopefish/Spacedude)")
+	register_cvar("Warcraft_3_XP", "2.6.2",FCVAR_SERVER)
 
 	#if LANG_ENG
 		register_menucmd(register_menuid("\yWarCraft3 XP Menu"),(1<<0)|(1<<1)|(1<<2)|(1<<9),"do_wc3menuMain")
@@ -9429,19 +9456,42 @@ public plugin_init()
 	#endif	
 	register_menucmd(register_menuid("Warcraft 3 Plugin:") ,(1<<0)|(1<<1),"vote_count") 
         register_clcmd("war3menu","wc3_menuMain",-1,"- Show WarCraft3 XP Player menu")
+	register_clcmd("say /war3menu","wc3_menuMain")
+	register_clcmd("say_team /war3menu","wc3_menuMain")
 	register_clcmd("changerace","change_race",-1,"changerace")	// mp_allowchangerace must be set to 1
+	register_clcmd("say /changerace","say_changerace")
+	register_clcmd("say_team /changerace", "say_changerace") 
 	register_clcmd("selectskill","select_skill",-1,"selectskill")	// Use "selectskill" console command to lvl up
+	register_clcmd("say /selectskill","say_selectskill")
+	register_clcmd("say_team /selectskill","say_selectskill")
 	register_concmd("playerskills","player_skills",-1,"playerskills")
+	register_clcmd("say /playerskills","say_playerskills")
+	register_clcmd("say_team /playerskills","say_playerskills")
 	register_clcmd("skillsinfo","skills_info",-1,"skillsinfo")
+	register_clcmd("say /skillsinfo","say_skillsinfo")
+	register_clcmd("say_team /skillsinfo","say_skillsinfo")
 	register_clcmd("itemsinfo","items_info",-1,"itemsinfo")
+	register_clcmd("say /itemsinfo","say_itemsinfo")
+	register_clcmd("say_team /itemsinfo","say_itemsinfo")
 	register_clcmd("war3help","war3_info",-1,"war3help")	
+	register_clcmd("say /war3help","war3_info")
+	register_clcmd("say_team /war3help","war3_info")
 	register_clcmd("savexp","save_xp_info",-1,"savexp")
+	register_clcmd("say /savexp","save_xp_info")
+	register_clcmd("say_team /savexp","save_xp_info")
 	register_clcmd("war3vote","war3_vote",-1,"war3vote")
+	register_clcmd("say /war3vote","say_war3vote")
+	register_clcmd("say_team /war3vote","say_war3vote")
 	register_clcmd("ultimate","ultimate",-1,"ultimate")
 	register_clcmd("icons","icons",-1,"- Turn off race icons above teammates heads.")
+	register_clcmd("say /icons","icons")
+	register_clcmd("say_team /icons","icons")
 	register_clcmd("shopmenu","shopmenu",-1,"shopmenu")
-	register_clcmd("say","check_say")
-	register_clcmd("say_team","check_say")
+	register_clcmd("say /shopmenu","shopmenu")
+	register_clcmd("say_team /shopmenu","shopmenu")
+	register_clcmd("level","say_level",-1,"level")
+	register_clcmd("say /level","say_level")
+	register_clcmd("say_team /level","say_level")
 	register_concmd("fullupdate","cmdFullUpdate",-1,"fullupdate")
 	register_concmd("wc3_givexp","wc3_givexp",ADMIN_RCON,"<name or #userid> <xp>")
 	register_srvcmd("display_race_select","display_race_select")		// For internal use only (don't use this this command)
@@ -9483,6 +9533,7 @@ public plugin_init()
    	register_logevent("event_player_action",3,"1=triggered") 
 		
 	register_cvar("mp_allowchangerace","0",0)
+	register_cvar("mp_changeracepastfreezetime","0",0)
 	#if ORCNADE_CVAR
 		register_cvar("mp_alloworcnade","1",0)
 	#endif
@@ -9864,4 +9915,3 @@ public convert_to_vault()
 
 #endif
 #endif
-
