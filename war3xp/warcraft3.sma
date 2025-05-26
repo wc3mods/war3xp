@@ -3,7 +3,7 @@
 *  Warcraft 3 XP 
 *  Original idea and code by SpaceDude 
 *
-*  Version 2.6.2
+*  Version 2.6.3
 *
 *  Read readme.txt for a desription of the plugin.
 *  Read installer.txt for installation information.
@@ -9324,23 +9324,25 @@ public plugin_precache() {
 		precache_sound("weapons/knife_slash2.wav")
 		precache_sound("items/equip_nvg.wav")
         #endif
-	
-	/* Some custom player models don't render transparent, let's make sure the client has the originals */
-        force_unmodified(force_exactfile,{0,0,0},{0,0,0},"models/player/arctic/arctic.mdl")
-        force_unmodified(force_exactfile,{0,0,0},{0,0,0},"models/player/gign/gign.mdl")
-        force_unmodified(force_exactfile,{0,0,0},{0,0,0},"models/player/gsg9/gsg9.mdl")
-        force_unmodified(force_exactfile,{0,0,0},{0,0,0},"models/player/guerilla/guerilla.mdl")
-        force_unmodified(force_exactfile,{0,0,0},{0,0,0},"models/player/leet/leet.mdl")
-        force_unmodified(force_exactfile,{0,0,0},{0,0,0},"models/player/sas/sas.mdl")
-        force_unmodified(force_exactfile,{0,0,0},{0,0,0},"models/player/terror/terror.mdl")
-        force_unmodified(force_exactfile,{0,0,0},{0,0,0},"models/player/urban/urban.mdl")
-        force_unmodified(force_exactfile,{0,0,0},{0,0,0},"models/player/vip/vip.mdl")
-        // This is booting everybody off the server for AMX Mod X 1.5x
-        // set_cvar_num("mp_consistency",1)
 
-        if (get_cvar_num("mp_consistency")!=0)
-		server_print("[WC3] Forcing unmodified player models") 
-        #if SHORT_TERM
+	/* Some custom player models don't render transparent, let's make sure the client has the originals */
+	/*
+	// This is booting everybody off the server maybe AMX Mod X 1.5x problem or different server/client
+	// models, commenting it o rof tunow
+	force_unmodified(force_exactfile,{0,0,0},{0,0,0},"models/player/arctic/arctic.mdl")
+	force_unmodified(force_exactfile,{0,0,0},{0,0,0},"models/player/gign/gign.mdl")
+	force_unmodified(force_exactfile,{0,0,0},{0,0,0},"models/player/gsg9/gsg9.mdl")
+	force_unmodified(force_exactfile,{0,0,0},{0,0,0},"models/player/guerilla/guerilla.mdl")
+	force_unmodified(force_exactfile,{0,0,0},{0,0,0},"models/player/leet/leet.mdl")
+	force_unmodified(force_exactfile,{0,0,0},{0,0,0},"models/player/sas/sas.mdl")
+	force_unmodified(force_exactfile,{0,0,0},{0,0,0},"models/player/terror/terror.mdl")
+	force_unmodified(force_exactfile,{0,0,0},{0,0,0},"models/player/urban/urban.mdl")
+	force_unmodified(force_exactfile,{0,0,0},{0,0,0},"models/player/vip/vip.mdl")
+	set_cvar_num("mp_consistency",1)
+	server_print("[WC3] Forcing unmodified player models")
+	*/
+
+	#if SHORT_TERM
 		server_print("[WC3] Using Engine Module, Short Term XP Modus")
         #else
 		server_print("[WC3] Using Engine Module, Long Term XP Modus, saving xp to: Vault[%d] SQL[%d]",VAULT_SAVE,MYSQL_ENABLED)
@@ -9387,8 +9389,8 @@ public plugin_init()
 	gmsgShake = get_user_msgid("ScreenShake")
 	gmsgStatusText = get_user_msgid("StatusText")
 
-	register_plugin("Warcraft 3 XP","2.6.2","ferret (Dopefish/Spacedude)")
-	register_cvar("Warcraft_3_XP", "2.6.2",FCVAR_SERVER)
+	register_plugin("Warcraft 3 XP","2.6.3","ferret (Dopefish/Spacedude)")
+	register_cvar("Warcraft_3_XP", "2.6.3",FCVAR_SERVER)
 
 	#if LANG_ENG
 		register_menucmd(register_menuid("\yWarCraft3 XP Menu"),(1<<0)|(1<<1)|(1<<2)|(1<<9),"do_wc3menuMain")
