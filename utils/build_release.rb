@@ -165,7 +165,7 @@ class BuildService
 
       # Create client files zip with just the assets
       FileUtils.rm_rf("#{@build_dir}/addons")  # Temporarily remove addons folder
-      create_zip(name: "war3x-v#{@version}-client-files", paths: %w[sound sprites], build_dir: @build_tmp_dir)
+      create_zip(name: "war3xp-v#{@version}-client-files", paths: %w[sound sprites], build_dir: @build_tmp_dir)
       copy_plugin_files  # Restore the addons folder
   end
 
