@@ -9397,7 +9397,11 @@ public plugin_init()
 	register_plugin("Warcraft 3 XP", WAR3XP_VERSION, "ferret (Dopefish/Spacedude)")
 	register_cvar("Warcraft_3_XP", WAR3XP_VERSION, FCVAR_SERVER)
 
-	register_cvar("amx_war3_game", "war3xp", FCVAR_SERVER)
+	new szAmxCvar[64]
+	format( szAmxCvar, 63 , "%s %s", WAR3XP_PLUGINNAME, WAR3XP_VERSION )
+
+	register_cvar( "amx_war3_game", szAmxCvar, FCVAR_SERVER)
+	register_cvar( "amx_war3_game_short", "war3xp", FCVAR_SERVER)
 	register_cvar( "amx_war3_version", WAR3XP_VERSION, FCVAR_SERVER )
 	register_cvar( "amx_war3_date", WAR3XP_DATE, FCVAR_SERVER )
 
