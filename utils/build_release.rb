@@ -6,7 +6,7 @@ require 'optparse'
 class BuildService
   attr_reader :version, :amxx_version, :rebuild_image
 
-  def initialize(version:, amxx_version:, rebuild_image: false)
+  def initialize(version:, amxx_version:, rebuild_image: false, build_config: nil)
     @version = version
     @amxx_version = amxx_version
     @rebuild_image = rebuild_image
@@ -18,8 +18,10 @@ class BuildService
     @amxx_dir = File.join(@root, 'amxx')
     @src_dir = File.join(@root, 'plugin_src')
     @config_dir = File.join(@root, 'amxmodx')
+    @asset_dir = File.join(@root, 'hl_assets')
     @util_dir = File.join(@root, 'utils')
     @games = %w[cstrike]
+    @build_config = build_config
   end
 
   def base_url
@@ -58,8 +60,6 @@ class BuildService
 
   def download_amxx(game = "base")
     FileUtils.mkdir_p(@amxx_dir)
-
-    game = "cstrike" if game == "czero"
 
     # https://www.amxmodx.org/release/amxmodx-1.8.2-cstrike-linux.tar.gz
     # Download and extract Windows assets
@@ -135,6 +135,14 @@ class BuildService
     # FileUtils.cp_r(src, amxmodx_dir)
   end
 
+  def copy_hl_assets
+    %w[sound sprites war3x.css].each do |entry|
+      src = File.join(@asset_dir, entry)
+      dest = File.join(@build_tmp_dir, entry)
+      FileUtils.cp_r(src, dest, remove_destination: true) if File.exist?(src) || Dir.exist?(src)
+    end
+  end
+
   def create_zip(name:, paths: nil, build_dir: @build_dir)
     zip_name = File.join(@releases_dir, "#{name}.zip")
     log "Creating #{zip_name}..."
@@ -150,7 +158,15 @@ class BuildService
 
   def create_main_zips
     # Create plugin zip with everything
-    create_zip(name: "war3xp-v#{@version}-plugin-amxmodx-#{@amxx_version}", build_dir: @build_tmp_dir)
+    name = "war3xp"
+    name += "-#{@build_config}" if @build_config
+    name += "-v#{@version}-plugin-amxmodx-#{@amxx_version}"
+    create_zip(name: name, build_dir: @build_tmp_dir)
+
+      # Create client files zip with just the assets
+      FileUtils.rm_rf("#{@build_dir}/addons")  # Temporarily remove addons folder
+      create_zip(name: "war3x-v#{@version}-client-files", paths: %w[sound sprites], build_dir: @build_tmp_dir)
+      copy_plugin_files  # Restore the addons folder
   end
 
   def enable_module(module_name)
@@ -185,7 +201,7 @@ class BuildService
 
       # Update addons/amxmodx/config/plugins.ini to have war3x.amxx debug at the end of the file
       File.open(File.join(@amxx_dir, 'addons', 'amxmodx', 'configs', 'plugins.ini'), 'a') do |file|
-        file.puts "war3x.amxx debug"
+        file.puts "warcraft3.amxx debug"
       end
 
       # Enable required modules
@@ -206,7 +222,10 @@ class BuildService
       # Copy from BUILD_TMP_DIR to BUILD_DIR
       FileUtils.cp_r(Dir.glob("#{@build_tmp_dir}/*"), @build_dir)
 
-      zip_name = File.join(@releases_dir, "war3xp-v#{@version}-#{game}-amxmodx-#{@amxx_version}.zip")
+      zip_name = "war3xp"
+      zip_name += "-#{@build_config}" if @build_config
+      zip_name += "-v#{@version}-#{game}-amxmodx-#{@amxx_version}"
+      zip_name = File.join(@releases_dir, "#{zip_name}.zip")
       Dir.chdir(@build_dir) do
         system("zip -qr #{zip_name} *")
       end
@@ -226,6 +245,7 @@ class BuildService
       download_metamod
       compile_plugins
       copy_plugin_files
+      copy_hl_assets
       create_main_zips
       create_addons_zips
       log "Done!"
@@ -236,7 +256,7 @@ end
 # Parse command line arguments
 options = {}
 OptionParser.new do |opts|
-  opts.banner = "Usage: #{$0} --version VERSION --amxx-version AMXX_VERSION [--rebuild-image]"
+  opts.banner = "Usage: #{$0} --version VERSION --amxx-version AMXX_VERSION [--rebuild-image] [--extra-zip-string STRING]"
   
   opts.on("-v", "--version VERSION", "Version number for the release") do |v|
     options[:version] = v
@@ -249,12 +269,16 @@ OptionParser.new do |opts|
   opts.on("-r", "--rebuild-image", "Rebuild the Docker image") do |v|
     options[:rebuild_image] = v
   end
+
+  opts.on("-e", "--build-config STRING", "mysql, nvault or not specified") do |v|
+    options[:build_config] = v
+  end
 end.parse!
 
 # Validate required options
 unless options[:version]
   puts "ERROR: Version is required"
-  puts "Example: #{$0} --version 3.0.1 --amxx-version 1.10.0-git5467 [--rebuild-image]"
+  puts "Example: #{$0} --version 3.0.1 --amxx-version 1.10.0-git5467 [--rebuild-image] [--extra-zip-string vault]"
   exit 1
 end
 
@@ -277,7 +301,8 @@ if options[:amxx_version]
   service = BuildService.new(
     version: options[:version],
     amxx_version: options[:amxx_version],
-    rebuild_image: options[:rebuild_image]
+    rebuild_image: options[:rebuild_image],
+    build_config: options[:build_config]
   )
   service.run
 else
@@ -286,7 +311,8 @@ else
     service = BuildService.new(
       version: options[:version],
       amxx_version: amxx_version,
-      rebuild_image: options[:rebuild_image]
+      rebuild_image: options[:rebuild_image],
+      build_config: options[:build_config]
     )
     service.run
   end
