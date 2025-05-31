@@ -52,7 +52,7 @@
 new const WAR3XP_PLUGINNAME[] = "Warcraft 3 XP";
 new const WAR3XP_VERSION[]    = "2.6.4";
 new const WAR3XP_DATE[]       = __DATE__;
-new const WAR3XP_PLUGINNAME_SHORT[] = "WAR3XP";
+new const WAR3XP_PLUGINNAME_SHORT[] = "war3xp";
 
 #include <amxmodx>
 #include <amxmisc>
@@ -9393,16 +9393,15 @@ public plugin_init()
 	gmsgShake = get_user_msgid("ScreenShake")
 	gmsgStatusText = get_user_msgid("StatusText")
 
-	register_plugin("Warcraft 3 XP", WAR3XP_VERSION, "ferret (Dopefish/Spacedude)")
-	register_cvar("Warcraft_3_XP", WAR3XP_VERSION, FCVAR_SERVER)
-
 	new szAmxCvar[64]
 	format( szAmxCvar, 63 , "%s %s", WAR3XP_PLUGINNAME, WAR3XP_VERSION )
 
-	register_cvar( "amx_war3_game", szAmxCvar, FCVAR_SERVER)
-	register_cvar( "amx_war3_game_short", "war3xp", FCVAR_SERVER)
-	register_cvar( "amx_war3_version", WAR3XP_VERSION, FCVAR_SERVER )
+	register_plugin("Warcraft 3 XP", WAR3XP_VERSION, "ferret (Dopefish/Spacedude)")
+	register_cvar("Warcraft_3_XP", WAR3XP_VERSION, FCVAR_SERVER)
+	register_cvar( "amx_war3_game", "war3xp", FCVAR_SERVER )
+	register_cvar( "amx_war3_version", szAmxCvar, FCVAR_SERVER )
 	register_cvar( "amx_war3_date", WAR3XP_DATE, FCVAR_SERVER )
+
 
 	#if LANG_ENG
 		register_menucmd(register_menuid("\yWarCraft3 XP Menu"),(1<<0)|(1<<1)|(1<<2)|(1<<9),"do_wc3menuMain")
