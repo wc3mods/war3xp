@@ -1,1 +1,9 @@
+build/
+build_tmp/
 .DS_Store
+releases/
+amxmodx*.zip
+amxmodx*.tar.gz
+metamod*.zip
+amxx/
+.env
