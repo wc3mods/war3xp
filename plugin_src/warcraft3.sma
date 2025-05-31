@@ -3,7 +3,7 @@
 *  Warcraft 3 XP 
 *  Original idea and code by SpaceDude 
 *
-*  Version 2.6.3
+*  Version 2.6.4
 *
 *  Read readme.txt for a desription of the plugin.
 *  Read installer.txt for installation information.
@@ -48,6 +48,11 @@
 * Support Forum:
 * http://wc3mods.net/forums/index.php?c=6
 */
+
+new const WAR3XP_PLUGINNAME[] = "Warcraft 3 XP";
+new const WAR3XP_VERSION[]    = "2.6.4";
+new const WAR3XP_DATE[]       = __DATE__;
+new const WAR3XP_PLUGINNAME_SHORT[] = "WAR3XP";
 
 #include <amxmodx>
 #include <amxmisc>
@@ -9389,8 +9394,12 @@ public plugin_init()
 	gmsgShake = get_user_msgid("ScreenShake")
 	gmsgStatusText = get_user_msgid("StatusText")
 
-	register_plugin("Warcraft 3 XP","2.6.3","ferret (Dopefish/Spacedude)")
-	register_cvar("Warcraft_3_XP", "2.6.3",FCVAR_SERVER)
+	register_plugin("Warcraft 3 XP", WAR3XP_VERSION, "ferret (Dopefish/Spacedude)")
+	register_cvar("Warcraft_3_XP", WAR3XP_VERSION, FCVAR_SERVER)
+
+	register_cvar("amx_war3_game", "war3xp", FCVAR_SERVER)
+	register_cvar( "amx_war3_version", WAR3XP_VERSION, FCVAR_SERVER )
+	register_cvar( "amx_war3_date", WAR3XP_DATE, FCVAR_SERVER )
 
 	#if LANG_ENG
 		register_menucmd(register_menuid("\yWarCraft3 XP Menu"),(1<<0)|(1<<1)|(1<<2)|(1<<9),"do_wc3menuMain")
