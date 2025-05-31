@@ -7603,8 +7603,7 @@ public client_connect(id)
 }
 
 #if !SHORT_TERM
-// Notice from ferret - This is broken in AMX, not sure about AMXX
-public client_disconnect(id)
+public client_disconnected(id)
 { 
 	if (saved_xp && !is_user_bot(id) && p_skills[id][0] && playerxp[id]){
 		write_xp_to_file(id, "")
