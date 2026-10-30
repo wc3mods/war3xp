@@ -50,7 +50,7 @@
 */
 
 new const WAR3XP_PLUGINNAME[] = "Warcraft 3 XP";
-new const WAR3XP_VERSION[]    = "2.6.4";
+new const WAR3XP_VERSION[]    = "2.6.5";
 new const WAR3XP_DATE[]       = __DATE__;
 new const WAR3XP_PLUGINNAME_SHORT[] = "war3xp";
 

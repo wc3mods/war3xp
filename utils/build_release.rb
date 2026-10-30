@@ -113,6 +113,7 @@ class BuildService
         -w "/opt/addons/amxmodx/scripting" \
         -e AMXX_BASE_URL="#{base_url}" \
         -e AMXX_VERSION="#{@amxx_version}" \
+        -e AMXXPC_DEFINES="#{compile_defines}" \
         amxxpc
     CMD
       raise "ERROR: Docker compile failed for warcraft3.sma"
@@ -124,11 +125,27 @@ class BuildService
     FileUtils.cp("#{@src_dir}/warcraft3.sma", File.join(scripting_path, "warcraft3.sma"))
   end
 
+  # Compile-time switches for each build config (see plugin_src/warcraft3.cfg): mysql and nvault
+  # are long-term XP builds saving to MySQL or vault; the default build keeps the source's settings.
+  def compile_defines
+    case @build_config
+    when "mysql" then "SHORT_TERM=0 MYSQL_ENABLED=1"
+    when "nvault" then "SHORT_TERM=0"
+    else ""
+    end
+  end
+
   def copy_plugin_files
     # Create base addons directory
     addons_dir = File.join(@build_tmp_dir, "addons")
     amxmodx_dir = File.join(addons_dir, "amxmodx")
     FileUtils.mkdir_p(amxmodx_dir)
+
+    # The MySQL build reads its connection settings from configs/mysql.cfg
+    if @build_config == "mysql"
+      FileUtils.mkdir_p(File.join(amxmodx_dir, "configs"))
+      FileUtils.cp(File.join(@util_dir, "mysql.cfg"), File.join(amxmodx_dir, "configs", "mysql.cfg"))
+    end
 
     # Copy configs
     # src = File.join(@config_dir, "configs")
@@ -211,6 +228,8 @@ class BuildService
       enable_module("nvault")
       enable_module("cstrike")
       enable_module("csx")
+      # The MySQL build uses the DBI natives, which the mysql module provides
+      enable_module("mysql") if @build_config == "mysql"
 
       # Copy the correct liblist.gam
       src = File.join(@util_dir, game, 'liblist.gam')

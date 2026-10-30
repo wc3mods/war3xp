@@ -14,5 +14,6 @@ cd /opt/addons/amxmodx/scripting
 cp -R /workspace/plugin_src/* .
 
 # Build the plugin
-./amxxpc warcraft3.sma
+# AMXXPC_DEFINES selects the build config, e.g. "SHORT_TERM=0 MYSQL_ENABLED=1"
+./amxxpc ${AMXXPC_DEFINES} warcraft3.sma
 mv /opt/addons/amxmodx/scripting/warcraft3.amxx /workspace/build_tmp/addons/amxmodx/plugins/warcraft3.amxx
