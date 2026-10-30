@@ -8225,14 +8225,14 @@ public get_xp_from_file(id,returnrace){
 				`playername` VARCHAR(35) NOT NULL DEFAULT '', `xp` INT(11) NOT NULL DEFAULT 0, \
 				`race` TINYINT(4) NOT NULL DEFAULT 0, `skill1` TINYINT(4) NOT NULL DEFAULT 0, \
 				`skill2` TINYINT(4) NOT NULL DEFAULT 0, `skill3` TINYINT(4) NOT NULL DEFAULT 0, \
-				`skill4` TINYINT(4) NOT NULL DEFAULT 0, `time` TIMESTAMP(14) NOT NULL, PRIMARY KEY (`playerid`, `race`))", \
+				`skill4` TINYINT(4) NOT NULL DEFAULT 0, `time` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (`playerid`, `race`))", \
 				mysqltablename)
 		else if (iSQLtype == SQL_SQLITE)
 			format(mquery, 511, "CREATE TABLE `%s` (`playerid` VARCHAR(35) NOT NULL DEFAULT '', \
 				`playername` VARCHAR(35) NOT NULL DEFAULT '', `xp` INT(11) NOT NULL DEFAULT 0, \
 				`race` TINYINT(4) NOT NULL DEFAULT 0, `skill1` TINYINT(4) NOT NULL DEFAULT 0, \
 				`skill2` TINYINT(4) NOT NULL DEFAULT 0, `skill3` TINYINT(4) NOT NULL DEFAULT 0, \
-				`skill4` TINYINT(4) NOT NULL DEFAULT 0, `time` TIMESTAMP(14) NOT NULL DEFAULT CURRENT_TIMESTAMP, \
+				`skill4` TINYINT(4) NOT NULL DEFAULT 0, `time` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, \
 				PRIMARY KEY (`playerid`, `race`))", mysqltablename)
 
 		if (file_exists(filename)){
