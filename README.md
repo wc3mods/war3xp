@@ -32,7 +32,7 @@ The MySQL build uses AMX Mod X's legacy DBI natives, so it needs AMX Mod X [1.10
 
 On newer Linux distributions (glibc 2.41+, e.g. Ubuntu 26.04), Metamod cannot load AMX Mod X because its binaries request an executable stack, and AMX Mod X silently doesn't start. Clear the flag with `patchelf --clear-execstack addons/amxmodx/dlls/amxmodx_mm_i386.so`.
 
-To build: `utils/build_release.rb --version 2.6.5 --amxx-version 1.10.0-git5467 [--build-config mysql|nvault]` (needs Docker).
+To build: `utils/build_release.rb --version 2.6.5 --amxx-version 1.10.0-git5488 [--build-config mysql|nvault]` (needs Docker).
 
 ## Credits
 
