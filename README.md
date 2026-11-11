@@ -28,7 +28,7 @@ Each release has three builds:
 - `war3xp-nvault-v…`: long-term XP saved with nVault
 - `war3xp-mysql-v…`: long-term XP saved to MySQL. Set the connection in `addons/amxmodx/configs/mysql.cfg`; the password can be at most 31 characters.
 
-The MySQL build uses AMX Mod X's legacy DBI natives. On AMX Mod X 1.10 the stock mysql module crashes the server once such a login succeeds (`DatabaseInfo::charset` is left uninitialized in `dbi_connect`). A fix has been submitted to AMX Mod X; until it is released, use a mysql module built with the fix, or the nVault build.
+The MySQL build uses AMX Mod X's legacy DBI natives, so it needs AMX Mod X [1.10.0.5488](https://github.com/alliedmodders/amxmodx/releases/tag/1.10.0.5488) or newer. Older 1.10 builds' mysql module crashes the server once such a login succeeds (`DatabaseInfo::charset` was left uninitialized in `dbi_connect`, fixed in [alliedmodders/amxmodx#1170](https://github.com/alliedmodders/amxmodx/pull/1170)). On an older build, take the mysql module from 5488 or use the nVault build.
 
 On newer Linux distributions (glibc 2.41+, e.g. Ubuntu 26.04), Metamod cannot load AMX Mod X because its binaries request an executable stack, and AMX Mod X silently doesn't start. Clear the flag with `patchelf --clear-execstack addons/amxmodx/dlls/amxmodx_mm_i386.so`.
 
